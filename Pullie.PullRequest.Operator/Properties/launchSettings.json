@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Pullie.PullRequest.Operator": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
