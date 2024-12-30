@@ -1,11 +1,12 @@
 ﻿using k8s.Models;
 
-namespace Pullie.PullRequest.Operator;
+namespace Isol8;
 
 public class EnvoyOptions
 {
     public const string Key = "Envoy";
     public string Image { get; set; } = "envoyproxy/envoy:v1.26.0";
+    public short IngressPort { get; set; } = 80;
     public short ServicePort { get; set; } = 80;
     public short ContainerPort { get; set; } = 8080;
     public short AdminContainerPort { get; set; } = 8081;

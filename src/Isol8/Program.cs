@@ -1,9 +1,10 @@
 ﻿using k8s;
-using Pullie.PullRequest.Operator;
+using Isol8;
 using Serilog;
 
 var logger = new LoggerConfiguration()
     .WriteTo.Console()
+    .Enrich.FromLogContext()
     .CreateLogger();
 
 var builder = Host.CreateApplicationBuilder(args);
@@ -11,7 +12,10 @@ var builder = Host.CreateApplicationBuilder(args);
 builder.Services.Configure<EnvoyOptions>(builder.Configuration.GetSection(EnvoyOptions.Key));
 
 builder.Logging.AddSerilog(logger);
-builder.Services.AddHostedService<PullRequestOperator>();
+
+builder.Services.AddHostedService<PullRequestController>();
+builder.Services.AddSingleton<EnvoyYaml>();
+builder.Services.AddSingleton<ServiceCache>();
 builder.Services.AddSingleton<IKubernetes, Kubernetes>(_ =>
 {
     var config = KubernetesClientConfiguration.BuildDefaultConfig();

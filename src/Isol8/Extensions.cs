@@ -1,10 +1,16 @@
 ﻿using System.Net;
 using k8s.Autorest;
 
-namespace Pullie.PullRequest.Operator;
+namespace Isol8;
 
 public static class Extensions
 {
+    /// <summary>
+    /// Truncates a string to a maximum length.
+    /// </summary>
+    /// <param name="str"></param>
+    /// <param name="maxLength"></param>
+    /// <returns></returns>
     public static string Truncate(this string str, int maxLength)
     {
         if (string.IsNullOrEmpty(str))
@@ -15,6 +21,12 @@ public static class Extensions
         return str.Length <= maxLength ? str : str[..maxLength];
     }
 
+    /// <summary>
+    /// Handles a 404 response by returning null.
+    /// </summary>
+    /// <typeparam name="TType"></typeparam>
+    /// <param name="task"></param>
+    /// <returns></returns>
     public static async Task<TType?> Handle404AsNull<TType>(this Task<TType> task)
         where TType : class
     {
@@ -27,11 +39,6 @@ public static class Extensions
             return null;
         }
     }
-}
-
-public static class Constants
-{
-    public const int ServiceNameLength = 63;
 
     /// <summary>
     /// Returns a prefixed service name for the original service.

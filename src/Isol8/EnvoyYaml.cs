@@ -2,7 +2,7 @@
 using k8s.Models;
 using Microsoft.Extensions.Options;
 
-namespace Pullie.PullRequest.Operator;
+namespace Isol8;
 
 public class EnvoyYaml(IOptions<EnvoyOptions> envoyOptions)
 {
@@ -38,7 +38,7 @@ static_resources:
               - match:
                   headers:
                   - name: kubernetes-route-as
-                    exact_match: {pullRequest.Labels()[Labels.RouteOnLabel]}
+                    exact_match: {pullRequest.Annotations()[Constants.RouteOnAnnotation]}
                   prefix: ""/""
                 route:
                   cluster: {pullRequest.Name()}-cluster
