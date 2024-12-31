@@ -23,7 +23,7 @@ jobs:
         id: set-variables
         run: |
           echo "REPOSITORY=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-          echo "VERSION=$(yq -r .version ./deploy/Chart.yaml)" >> "$GITHUB_OUTPUT"          
+          echo "VERSION=$(yq -r .version ./charts/isol8/Chart.yaml)" >> "$GITHUB_OUTPUT"          
 
       - name: Variables - Echo
         id: test-variables
@@ -40,7 +40,7 @@ jobs:
 
       - name: Helm - Package and Push
         run: |
-          helm package ./deploy --version ${{ steps.set-variables.outputs.VERSION }}
+          helm package ./charts/isol8 --version ${{ steps.set-variables.outputs.VERSION }}
           helm push ./isol8-${{ steps.set-variables.outputs.VERSION }}.tgz oci://${{ steps.set-variables.outputs.REPOSITORY }}/charts          
   
   publish-helm-chart:
