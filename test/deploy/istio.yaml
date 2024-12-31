@@ -1,0 +1,81 @@
+apiVersion: telemetry.istio.io/v1alpha1
+kind: Telemetry
+metadata:
+  name: mesh-default
+  namespace: istio-system
+spec:
+  accessLogging:
+    - providers:
+      - name: envoy
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: Gateway
+metadata:
+  name: ingress-gateway
+  namespace: istio-ingress
+spec:
+  selector:
+    app: istio-ingress
+    istio: ingress
+  servers:
+  - port:
+      number: 80
+      name: http
+      protocol: HTTP
+    hosts:
+    - "*"
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: service-a
+  namespace: default
+spec:
+  hosts:
+  - "*"
+  gateways:
+  - istio-ingress/ingress-gateway
+  http:
+  - match:
+    - uri:
+        prefix: /service-a
+    route:
+    - destination:
+        host: service-a
+        port:
+          number: 80
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: EnvoyFilter
+metadata:
+  name: bridge-envoy-filter
+  namespace: istio-ingress
+spec:
+  configPatches:
+    - applyTo: HTTP_FILTER
+      match:
+        context: GATEWAY
+        listener:
+          filterChain:
+            filter:
+              name: envoy.filters.network.http_connection_manager
+              subFilter:
+                name: envoy.filters.http.router
+      patch:
+        operation: INSERT_BEFORE
+        value:
+          name: envoy.filters.http.lua
+          typed_config:
+            '@type': type.googleapis.com/envoy.extensions.filters.http.lua.v3.Lua
+            inlineCode: |
+              function envoy_on_request(request_handle)
+                local headers = request_handle:headers()
+                local host = headers:get(":authority")
+                local routePrefix = string.match(host, "^([^.]+).isol8")
+                if routePrefix then
+                  headers:add("kubernetes-route-as", routePrefix)
+                end
+              end
+  workloadSelector:
+    labels:
+      istio: ingress

@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "Isol8": {
+      "commandName": "Project"
+    },
+    "Container (Dockerfile)": {
+      "commandName": "Docker"
+    }
+  }
+}
