@@ -1,4 +1,5 @@
 #!/bin/bash
+
 HEALTHCHECK_FILE="/tmp/healthcheck"
 MAX_AGE_SECONDS=60  # Replace with the maximum allowed age in seconds
 
