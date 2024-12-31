@@ -44,7 +44,7 @@ jobs:
           tags: |
             type=sha
             type=semver,pattern=v*
-            type=latest,branches=main
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push Docker image
         id: push
