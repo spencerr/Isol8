@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: registry.k3d.local:5001/isol8
+  repository: ghcr.io/spencerr/isol8
   pullPolicy: Always
   # Overrides the image tag whose default is the chart appVersion.
   tag: latest

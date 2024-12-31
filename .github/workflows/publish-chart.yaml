@@ -1,0 +1,65 @@
+name: Publish Helm Chart
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'deploy/**'
+  workflow_dispatch:
+
+jobs:
+  package-helm-chart:
+    permissions:
+      contents: read
+      packages: write
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Github - Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Variables - Setup
+        id: set-variables
+        run: |
+          echo "REPOSITORY=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+          echo "VERSION=$(yq -r .version ./deploy/Chart.yaml)" >> "$GITHUB_OUTPUT"          
+
+      - name: Variables - Echo
+        id: test-variables
+        run: |
+          echo ${{ steps.set-variables.outputs.REPOSITORY }}
+          echo ${{ steps.set-variables.outputs.VERSION }}          
+
+      - name: GHCR - Login
+        uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      - name: Helm - Package and Push
+        run: |
+          helm package ./deploy --version ${{ steps.set-variables.outputs.VERSION }}
+          helm push ./isol8-${{ steps.set-variables.outputs.VERSION }}.tgz oci://${{ steps.set-variables.outputs.REPOSITORY }}/charts          
+  
+  publish-helm-chart:
+    permissions:
+      id-token: write
+      packages: write
+      contents: write
+      actions: read
+      deployments: read
+      pull-requests: read
+      
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Github - Checkout
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+
+      - name: Publish - GitHub Pages Charts
+        uses: stefanprodan/helm-gh-pages@0ad2bb377311d61ac04ad9eb6f252fb68e207260 # v1.7.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          linting: off
