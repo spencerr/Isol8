@@ -126,11 +126,11 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
 
     public ServiceEntry GetReconcileEntry(V1Service service)
     {
-        if (service.Annotations().ContainsKey(Constants.OriginalNameAnnotation))
+        if (service.Annotations()?.ContainsKey(Constants.OriginalNameAnnotation) == true)
         {
             return new ServiceEntry(service.Namespace(), service.Annotations()[Constants.OriginalNameAnnotation]);
         }
-        if (service.Annotations().ContainsKey(Constants.RouteFromAnnotation))
+        if (service.Annotations()?.ContainsKey(Constants.RouteFromAnnotation) == true)
         {
             return new ServiceEntry(service.Namespace(), service.Annotations()[Constants.RouteFromAnnotation]);
         }
@@ -143,14 +143,14 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         logger.LogInformation("[Reconcile {Id}] Attempting to reconcile Service {ServiceName} in Namespace {Namespace}", requestId, entry.ServiceName, entry.Namespace);
 
         var service = await TryGetService(entry);
-        var envoyService = service != null && service.Annotations().ContainsKey(Constants.EnvoyAnnotation) ? service : null;
+        var envoyService = service != null && service.Annotations()?.ContainsKey(Constants.EnvoyAnnotation) == true ? service : null;
         logger.LogInformation("[Reconcile {Id}] Envoy Service {ServiceName} in namespace {Namespace} - {Status}", requestId, entry.ServiceName, entry.Namespace, envoyService == null ? HttpStatusCode.NotFound : HttpStatusCode.OK);
 
         var originalService = await TryGetService(new ServiceEntry(entry.Namespace, entry.GetOriginalName()));
         logger.LogInformation("[Reconcile {Id}] Original Service {ServiceName} in namespace {Namespace} - {Status}", requestId, entry.ServiceName, entry.Namespace, originalService == null ? HttpStatusCode.NotFound : HttpStatusCode.OK);
 
         var pullRequestServices = serviceCache.Values
-            .Where(s => s.Annotations().TryGetValue(Constants.RouteFromAnnotation, out var value) && value == entry.ServiceName)
+            .Where(s => s.Annotations()?.TryGetValue(Constants.RouteFromAnnotation, out var value) == true && value == entry.ServiceName)
             .ToList();
 
         foreach (var pullRequest in pullRequestServices)
@@ -224,8 +224,8 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                 {
                     Name = entry.GetEnvoyName(),
                     NamespaceProperty = entry.Namespace,
-                    Labels = originalDeployment.Labels(),
-                    Annotations = originalDeployment.Annotations()
+                    Labels = originalDeployment.Labels() ?? new Dictionary<string, string>(),
+                    Annotations = originalDeployment.Annotations() ?? new Dictionary<string, string>()
                 },
                 Data = new Dictionary<string, string>
                 {
@@ -268,9 +268,9 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         logger.LogInformation("[Create Envoy {Id}] Original Service {ServiceName} in namespace {Namespace} found", requestId, entry.GetOriginalName(), entry.Namespace);
 
         var envoyService = await TryGetService(entry);
-        if (envoyService != null && !envoyService.Annotations().ContainsKey(Constants.EnvoyAnnotation))
+        if (envoyService != null && envoyService.Annotations()?.ContainsKey(Constants.EnvoyAnnotation) != true)
         {
-            serviceCache.TryRemove(GetServiceKey(envoyService), out var _);
+            serviceCache.TryRemove(entry, out var _);
 
             logger.LogInformation("[Create Envoy {Id}] Deleting Service {ServiceName} in namespace {Namespace} before creating envoy", requestId, envoyService.Name(), envoyService.Namespace());
             await client.CoreV1.DeleteNamespacedServiceAsync(envoyService.Name(), envoyService.Namespace());
@@ -285,8 +285,8 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                 {
                     Name = entry.ServiceName,
                     NamespaceProperty = entry.Namespace,
-                    Labels = originalService.Labels(),
-                    Annotations = originalService.Annotations()
+                    Labels = originalService.Labels() ?? new Dictionary<string, string>(),
+                    Annotations = originalService.Annotations() ?? new Dictionary<string, string>()
                 },
                 Spec = new V1ServiceSpec
                 {
@@ -334,7 +334,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         }
 
         logger.LogInformation("[Create Envoy {Id}] Original Deployment {DeploymentName} in namespace {Namespace} found", requestId, entry.ServiceName, entry.Namespace);
-        var labels = originalDeployment.Labels();
+        var labels = originalDeployment.Labels() ?? new Dictionary<string, string>();
         labels["app.kubernetes.io/name"] = entry.GetEnvoyName();
 
         var envoyDeployment = await client.AppsV1.ReadNamespacedDeploymentAsync(entry.GetEnvoyName(), entry.Namespace).Handle404AsNull();
@@ -347,7 +347,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                     Name = entry.GetEnvoyName(),
                     NamespaceProperty = entry.Namespace,
                     Labels = labels,
-                    Annotations = originalDeployment.Annotations()
+                    Annotations = originalDeployment.Annotations() ?? new Dictionary<string, string>()
                 },
                 Spec = new V1DeploymentSpec
                 {
@@ -468,14 +468,14 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             {
                 Preconditions = new V1Preconditions
                 {
-                    ResourceVersion = deployment.ResourceVersion(),
-                    Uid = deployment.Uid()
+                    ResourceVersion = configMap.ResourceVersion(),
+                    Uid = configMap.Uid()
                 }
             });
         }
 
         var service = await client.CoreV1.ReadNamespacedServiceAsync(entry.ServiceName, entry.Namespace).Handle404AsNull();
-        if (service != null && service.Annotations().ContainsKey(Constants.EnvoyAnnotation))
+        if (service != null && service.Annotations()?.ContainsKey(Constants.EnvoyAnnotation) == true)
         {
             serviceCache.TryRemove(GetServiceKey(service), out var _);
             logger.LogInformation("[Remove Envoy {Id}] Deleting Envoy Service {ServiceName} in namespace {Namespace}", requestId, service.Name(), service.Namespace());
@@ -506,7 +506,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             return;
         }
 
-        if (!service.Annotations().ContainsKey(Constants.EnvoyAnnotation))
+        if (service.Annotations()?.ContainsKey(Constants.EnvoyAnnotation) != true)
         {
             serviceCache.TryRemove(GetServiceKey(service), out var _);
 
@@ -516,8 +516,8 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                 {
                     Name = entry.GetOriginalName(),
                     NamespaceProperty = service.Namespace(),
-                    Labels = service.Metadata.Labels,
-                    Annotations = service.Metadata.Annotations
+                    Labels = service.Metadata.Labels ?? new Dictionary<string, string>(),
+                    Annotations = service.Metadata.Annotations ?? new Dictionary<string, string>()
                 },
                 Spec = service.Spec
             };
@@ -536,40 +536,54 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
 
     public async Task RevertOriginalService(Guid requestId, ServiceEntry entry)
     {
-        var service = await client.CoreV1.ReadNamespacedServiceAsync(entry.GetOriginalName(), entry.Namespace).Handle404AsNull();
-        if (service == null)
+        var originalService = await client.CoreV1.ReadNamespacedServiceAsync(entry.GetOriginalName(), entry.Namespace).Handle404AsNull();
+        if (originalService == null)
         {
             logger.LogWarning("[Revert Service {Id}] Service {ServiceName} in namespace {Namespace} not found", requestId, entry.ServiceName, entry.Namespace);
             return;
         }
 
-        if (!service.Annotations().TryGetValue(Constants.OriginalNameAnnotation, out var originalName))
+        if (originalService.Annotations()?.TryGetValue(Constants.OriginalNameAnnotation, out var originalName) != true)
         {
-            logger.LogWarning("[Revert Service {Id}] Service {ServiceName} in namespace {Namespace} is not marked with the original labels", requestId, service.Name(), service.Namespace());
+            logger.LogWarning("[Revert Service {Id}] Service {ServiceName} in namespace {Namespace} is not marked with the original labels", requestId, originalService.Name(), originalService.Namespace());
             return;
         }
 
-        var originalService = new V1Service
+        var service = await client.CoreV1.ReadNamespacedServiceAsync(entry.ServiceName, entry.Namespace).Handle404AsNull();
+        if (service == null)
         {
-            Metadata = new V1ObjectMeta
+            var revertedService = new V1Service
             {
-                Name = originalName,
-                NamespaceProperty = service.Namespace(),
-                Labels = service.Metadata.Labels,
-                Annotations = service.Metadata.Annotations
-            },
-            Spec = service.Spec
-        };
+                Metadata = new V1ObjectMeta
+                {
+                    Name = originalName,
+                    NamespaceProperty = originalService.Namespace(),
+                    Labels = originalService.Metadata.Labels ?? new Dictionary<string, string>(),
+                    Annotations = originalService.Metadata.Annotations ?? new Dictionary<string, string>()
+                },
+                Spec = originalService.Spec
+            };
 
-        originalService.Spec.ClusterIP = null;
-        originalService.Spec.ClusterIPs = null;
+            revertedService.Spec.ClusterIP = null;
+            revertedService.Spec.ClusterIPs = null;
 
-        originalService.Metadata.Annotations.Remove(Constants.GeneratedAnnotation);
-        originalService.Metadata.Annotations.Remove(Constants.OriginalNameAnnotation);
-        originalService.Metadata.Labels.Remove(Constants.WatchLabel);
+            revertedService.Metadata.Annotations.Remove(Constants.GeneratedAnnotation);
+            revertedService.Metadata.Annotations.Remove(Constants.OriginalNameAnnotation);
+            revertedService.Metadata.Labels.Remove(Constants.WatchLabel);
 
-        logger.LogInformation("[Revert Service {Id}] Reverting Original Service {ServiceName} in namespace {Namespace}", requestId, originalService.Name(), originalService.Namespace());
-        await client.CoreV1.CreateNamespacedServiceAsync(originalService, originalService.Namespace());
+            logger.LogInformation("[Revert Service {Id}] Reverting Service {ServiceName} in namespace {Namespace}", requestId, revertedService.Name(), revertedService.Namespace());
+            await client.CoreV1.CreateNamespacedServiceAsync(revertedService, revertedService.Namespace());
+        }
+        
+        logger.LogInformation("[Revert Service {Id}] Deleting Original Service {ServiceName} in namespace {Namespace}", requestId, originalService.Name(), originalService.Namespace());
+        await client.CoreV1.DeleteNamespacedServiceAsync(originalService.Name(), originalService.Namespace(), new V1DeleteOptions
+        {
+            Preconditions = new V1Preconditions
+            {
+                ResourceVersion = originalService.ResourceVersion(),
+                Uid = originalService.Uid()
+            }
+        });
     }
 
     private async Task StartConsumer(CancellationToken cancellationToken)
