@@ -27,7 +27,7 @@ jobs:
           echo "VERSION=$(yq -r .version ./deploy/Chart.yaml)" >> "$GITHUB_OUTPUT"    
 
       - name: Docker - Build
-        run: docker build -t ghcr.io/${{ steps.set-variables.outputs.REPOSITORY }}:latest -t ghcr.io/${{ steps.set-variables.outputs.REPOSITORY }}:${{ github.sha }} ./src/Isol8
+        run: docker build -t ghcr.io/${{ steps.set-variables.outputs.REPOSITORY }}:latest -t ghcr.io/${{ steps.set-variables.outputs.REPOSITORY }}:${{ github.sha }} -f ./src/Isol8/Dockerfile  ./src/
 
       - name: GHCR - Login
         uses: docker/login-action@v1
