@@ -53,6 +53,13 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                     () => logger.LogWarning("Service watcher closed...")
                 );
 
+            var start = DateTime.UtcNow;
+            while (!watcher.Watching && DateTime.UtcNow.Subtract(start) < TimeSpan.FromSeconds(30))
+            {
+                logger.LogInformation("Waiting for watcher to start...");
+                await Task.Delay(1000, cancellationToken);
+            }
+
             while (!cancellationToken.IsCancellationRequested && watcher.Watching)
             {
                 await Task.Delay(1000, cancellationToken);
