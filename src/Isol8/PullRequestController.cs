@@ -24,7 +24,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
 
         var healthCheckTask = Task.Run(async () =>
         {
-            while (!cts.IsCancellationRequested)
+            while (!cancellationToken.IsCancellationRequested)
             {
                 Touch("/tmp/healthcheck");
 
@@ -41,6 +41,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             ProcessorChannel.Writer.TryWrite(entry);
         }
 
+        var consumerTask = StartConsumer(cancellationToken);
         while (!cancellationToken.IsCancellationRequested)
         {
             using var watcher = client.CoreV1.ListServiceForAllNamespacesWithHttpMessagesAsync(labelSelector: Constants.LabelSelector, watch: true, cancellationToken: cancellationToken)
@@ -53,20 +54,23 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                     () => logger.LogWarning("Service watcher closed...")
                 );
 
-            var start = DateTime.UtcNow;
-            while (!watcher.Watching && DateTime.UtcNow.Subtract(start) < TimeSpan.FromSeconds(30))
+            var watcherTask = Task.Run(async () =>
             {
-                logger.LogInformation("Waiting for watcher to start...");
-                await Task.Delay(1000, cancellationToken);
-            }
+                var start = DateTime.UtcNow;
+                while (!watcher.Watching && DateTime.UtcNow.Subtract(start) < TimeSpan.FromSeconds(30))
+                {
+                    logger.LogInformation("Waiting for watcher to start...");
+                    await Task.Delay(1000, cancellationToken);
+                }
 
-            while (!cancellationToken.IsCancellationRequested && watcher.Watching)
-            {
-                await Task.Delay(1000, cancellationToken);
-            }
-        }     
+                while (!cancellationToken.IsCancellationRequested && watcher.Watching)
+                {
+                    await Task.Delay(1000, cancellationToken);
+                }
+            }, cancellationToken);
 
-        await Task.WhenAll(healthCheckTask, StartConsumer(cancellationToken));
+            await Task.WhenAny(healthCheckTask, watcherTask, consumerTask);
+        }
     }
 
     private void Touch(string path)
