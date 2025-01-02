@@ -41,16 +41,20 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             ProcessorChannel.Writer.TryWrite(entry);
         }
 
-        using var serviceList = await client.CoreV1.ListServiceForAllNamespacesWithHttpMessagesAsync(labelSelector: Constants.LabelSelector, watch: true, cancellationToken: cancellationToken);
+        while (!cancellationToken.IsCancellationRequested)
+        {
+            using var watcher = client.CoreV1.ListServiceForAllNamespacesWithHttpMessagesAsync(labelSelector: Constants.LabelSelector, watch: true, cancellationToken: cancellationToken)
+                .Watch<V1Service, V1ServiceList>(HandleEvent,
+                    async e =>
+                    {
+                        logger.LogError(e, "An unexpected exception occured during service watching.");
+                        await cts.CancelAsync();
+                    },
+                    () => logger.LogWarning("Service watcher closed...")
+                );
 
-        serviceList.Watch<V1Service, V1ServiceList>(HandleEvent,
-            async e =>
-            {
-                logger.LogError(e, "An unexpected exception occured during service watching.");
-                await cts.CancelAsync();
-            },
-            () => logger.LogWarning("Service watcher closed")
-        );
+            await watcher;
+        }     
 
         await Task.WhenAll(healthCheckTask, StartConsumer(cancellationToken));
     }
