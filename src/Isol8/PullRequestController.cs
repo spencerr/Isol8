@@ -53,7 +53,10 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
                     () => logger.LogWarning("Service watcher closed...")
                 );
 
-            await watcher;
+            while (!cancellationToken.IsCancellationRequested && watcher.Watching)
+            {
+                await Task.Delay(1000, cancellationToken);
+            }
         }     
 
         await Task.WhenAll(healthCheckTask, StartConsumer(cancellationToken));
