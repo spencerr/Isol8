@@ -42,7 +42,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         }
 
         var consumerTask = StartConsumer(cancellationToken);
-        while (!cancellationToken.IsCancellationRequested)
+        while (!cancellationToken.IsCancellationRequested && !consumerTask.IsCompleted)
         {
             using var watcher = client.CoreV1.ListServiceForAllNamespacesWithHttpMessagesAsync(labelSelector: Constants.LabelSelector, watch: true, cancellationToken: cancellationToken)
                 .Watch<V1Service, V1ServiceList>(HandleEvent,
