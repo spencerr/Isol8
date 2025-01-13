@@ -71,6 +71,11 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
 
             await Task.WhenAny(healthCheckTask, watcherTask, consumerTask);
         }
+
+        if (!cts.IsCancellationRequested)
+        {
+            await cts.CancelAsync();
+        }
     }
 
     private void Touch(string path)
