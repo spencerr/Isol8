@@ -10,7 +10,7 @@ namespace Isol8;
 
 public class PullRequestController(IKubernetes client, ILogger<PullRequestController> logger, IOptions<EnvoyOptions> envoyOptions, EnvoyYaml envoyYaml, ServiceCache serviceCache) : BackgroundService
 {
-    private static readonly Channel<ServiceEntry> ProcessorChannel = Channel.CreateUnbounded<ServiceEntry>(new UnboundedChannelOptions
+    public readonly Channel<ServiceEntry> ProcessorChannel = Channel.CreateUnbounded<ServiceEntry>(new UnboundedChannelOptions
     {
         SingleReader = true
     });
@@ -451,6 +451,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             envoyDeployment.Metadata.Labels[Constants.WatchLabel] = "true";
             envoyDeployment.Metadata.Annotations[Constants.GeneratedAnnotation] = "true";
             envoyDeployment.Metadata.Annotations[Constants.WatchNameAnnotation] = entry.ServiceName;
+            envoyDeployment.Metadata.Labels = envoyDeployment.Metadata.Labels.Where(l => !l.Key.StartsWith("argocd")).ToDictionary();
 
             logger.LogInformation("[Create Envoy {Id}] Creating Envoy Deployment {DeploymentName} in namespace {Namespace}", requestId, envoyDeployment.Name(), envoyDeployment.Namespace());
             await client.AppsV1.CreateNamespacedDeploymentAsync(envoyDeployment, entry.Namespace);
