@@ -275,7 +275,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             }, V1Patch.PatchType.MergePatch);
 
             logger.LogInformation("[Register {Id}] Patching Envoy ConfigMap {ConfigMapName} in namespace {Namespace}", requestId, envoyConfigMap.Name(), envoyConfigMap.Namespace());
-            await client.CoreV1.PatchNamespacedConfigMapAsync(patch, envoyConfigMap.Name(), envoyConfigMap.Namespace());
+            _ = await client.CoreV1.PatchNamespacedConfigMapAsync(patch, envoyConfigMap.Name(), envoyConfigMap.Namespace()).Handle404AsNull();
         }
     }
 
@@ -296,7 +296,7 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
             serviceCache.TryRemove(entry, out var _);
 
             logger.LogInformation("[Create Envoy {Id}] Deleting Service {ServiceName} in namespace {Namespace} before creating envoy", requestId, envoyService.Name(), envoyService.Namespace());
-            await client.CoreV1.DeleteNamespacedServiceAsync(envoyService.Name(), envoyService.Namespace());
+            _ = await client.CoreV1.DeleteNamespacedServiceAsync(envoyService.Name(), envoyService.Namespace()).Handle404AsNull();
         }
 
         envoyService = await TryGetService(entry);
@@ -474,28 +474,28 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         if (deployment != null)
         {
             logger.LogInformation("[Remove Envoy {Id}] Deleting Envoy Deployment {DeploymentName} in namespace {Namespace}", requestId, deployment.Name(), deployment.Namespace());
-            await client.AppsV1.DeleteNamespacedDeploymentAsync(entry.GetEnvoyName(), entry.Namespace, new V1DeleteOptions
+            _ = await client.AppsV1.DeleteNamespacedDeploymentAsync(entry.GetEnvoyName(), entry.Namespace, new V1DeleteOptions
             {
                 Preconditions = new V1Preconditions
                 {
                     ResourceVersion = deployment.ResourceVersion(),
                     Uid = deployment.Uid()
                 }
-            });
+            }).Handle404AsNull();
         }
 
         var configMap = await client.CoreV1.ReadNamespacedConfigMapAsync(entry.GetEnvoyName(), entry.Namespace).Handle404AsNull();
         if (deployment != null)
         {
             logger.LogInformation("[Remove Envoy {Id}] Deleting Envoy ConfigMap {ConfigMapName} in namespace {Namespace}", requestId, configMap.Name(), configMap.Namespace());
-            await client.CoreV1.DeleteNamespacedConfigMapAsync(configMap.Name(), configMap.Namespace(), new V1DeleteOptions
+            _ = await client.CoreV1.DeleteNamespacedConfigMapAsync(configMap.Name(), configMap.Namespace(), new V1DeleteOptions
             {
                 Preconditions = new V1Preconditions
                 {
                     ResourceVersion = configMap.ResourceVersion(),
                     Uid = configMap.Uid()
                 }
-            });
+            }).Handle404AsNull();
         }
 
         var service = await client.CoreV1.ReadNamespacedServiceAsync(entry.ServiceName, entry.Namespace).Handle404AsNull();
@@ -503,14 +503,14 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         {
             serviceCache.TryRemove(GetServiceKey(service), out var _);
             logger.LogInformation("[Remove Envoy {Id}] Deleting Envoy Service {ServiceName} in namespace {Namespace}", requestId, service.Name(), service.Namespace());
-            await client.CoreV1.DeleteNamespacedServiceAsync(service.Name(), service.Namespace(), new V1DeleteOptions
+             _ = await client.CoreV1.DeleteNamespacedServiceAsync(service.Name(), service.Namespace(), new V1DeleteOptions
             {
                 Preconditions = new V1Preconditions
                 {
                     ResourceVersion = service.ResourceVersion(),
                     Uid = service.Uid()
                 }
-            });
+            }).Handle404AsNull();
         }
     }
 
@@ -600,14 +600,14 @@ public class PullRequestController(IKubernetes client, ILogger<PullRequestContro
         }
         
         logger.LogInformation("[Revert Service {Id}] Deleting Original Service {ServiceName} in namespace {Namespace}", requestId, originalService.Name(), originalService.Namespace());
-        await client.CoreV1.DeleteNamespacedServiceAsync(originalService.Name(), originalService.Namespace(), new V1DeleteOptions
+        _ = await client.CoreV1.DeleteNamespacedServiceAsync(originalService.Name(), originalService.Namespace(), new V1DeleteOptions
         {
             Preconditions = new V1Preconditions
             {
                 ResourceVersion = originalService.ResourceVersion(),
                 Uid = originalService.Uid()
             }
-        });
+        }).Handle404AsNull();
     }
 
     private async Task StartConsumer(CancellationToken cancellationToken)
