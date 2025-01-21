@@ -4,7 +4,7 @@ on:
     branches:
       - main
     paths:
-      - 'deploy/**'
+      - 'charts/**'
   workflow_dispatch:
 
 jobs:
@@ -18,18 +18,23 @@ jobs:
     steps:
       - name: Github - Checkout
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: NBGV - Versioning
+        id: nbgv
+        uses: dotnet/nbgv@master
 
       - name: Variables - Setup
         id: set-variables
         run: |
           echo "REPOSITORY=ghcr.io/$(echo ${{ github.repository }} | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-          echo "VERSION=$(yq -r .version ./charts/isol8/Chart.yaml)" >> "$GITHUB_OUTPUT"          
 
       - name: Variables - Echo
         id: test-variables
         run: |
           echo ${{ steps.set-variables.outputs.REPOSITORY }}
-          echo ${{ steps.set-variables.outputs.VERSION }}          
+          echo ${{ steps.nbgv.outputs.SemVer2 }}        
 
       - name: GHCR - Login
         uses: docker/login-action@e92390c5fb421da1463c202d546fed0ec5c39f20 # v3.1.0
@@ -40,8 +45,8 @@ jobs:
 
       - name: Helm - Package and Push
         run: |
-          helm package ./charts/isol8 --version ${{ steps.set-variables.outputs.VERSION }}
-          helm push ./isol8-${{ steps.set-variables.outputs.VERSION }}.tgz oci://${{ steps.set-variables.outputs.REPOSITORY }}/charts          
+          helm package ./charts/isol8 --version ${{ steps.nbgv.outputs.SemVer2 }}
+          helm push ./isol8-${{ steps.nbgv.outputs.SemVer2 }}.tgz oci://${{ steps.set-variables.outputs.REPOSITORY }}/charts          
   
   publish-helm-chart:
     permissions:
